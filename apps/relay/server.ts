@@ -13,6 +13,9 @@ import {
   verifyAndSettle,
   settlementResponseHeader,
 } from "@relay/celo-pay/x402";
+import { generatePrivateKey } from "viem/accounts";
+import { accountFromKey } from "@relay/agent-kit";
+import { scoreService } from "../verdict/oracle";
 
 const PORT = Number(process.env.RELAY_PORT ?? 8402);
 const PAYTO = (process.env.PAYTO_ADDRESS ?? "") as `0x${string}`;
@@ -21,6 +24,32 @@ const FREE_MODE = process.env.FREE_MODE === "1";
 if (!FREE_MODE && !PAYTO) {
   console.error("PAYTO_ADDRESS required (or set FREE_MODE=1 for local demo)");
   process.exit(1);
+}
+
+// --- Verdict issuer identity -------------------------------------------------
+// Signs every scorecard. Set VERDICT_KEY for a stable onchain identity;
+// otherwise an ephemeral key is minted per boot (fine for free-mode demos).
+const verdictAccount = accountFromKey(
+  process.env.VERDICT_KEY ?? generatePrivateKey(),
+);
+
+// --- Event bus + SSE (feeds the live dashboard) ------------------------------
+export interface RelayEvent {
+  type: "settlement" | "call" | "scorecard" | "service_listed";
+  at: number;
+  data: Record<string, unknown>;
+}
+
+const eventLog: RelayEvent[] = [];
+const sseClients = new Set<ServerResponse>();
+const stats = { settlements: 0, volumeUsd: 0, calls: 0 };
+
+function emit(type: RelayEvent["type"], data: Record<string, unknown>) {
+  const ev: RelayEvent = { type, at: Date.now(), data };
+  eventLog.push(ev);
+  if (eventLog.length > 500) eventLog.shift();
+  const wire = `data: ${JSON.stringify(ev)}\n\n`;
+  for (const res of sseClients) res.write(wire);
 }
 
 // --- Service directory (in-memory; swap for Supabase in P2) ------------------
@@ -36,6 +65,7 @@ const services = new Map<string, Service>();
 
 function register(s: Service) {
   services.set(s.id, s);
+  emit("service_listed", { id: s.id, name: s.name, priceUsd: s.priceUsd });
 }
 
 // Built-in demo services so the swarm always has real work to buy/sell.
@@ -54,11 +84,28 @@ register({
   handler: (b) => ({ words: String(b?.text ?? "").trim().split(/\s+/).filter(Boolean).length }),
 });
 register({
-  id: "score",
-  name: "Verdict Score (stub)",
-  description: "Reputation score for { agentId } — see apps/verdict for the real oracle.",
-  priceUsd: "0.002",
-  handler: (b) => ({ agentId: b?.agentId ?? null, score: 50 + Math.floor(Math.random() * 50), evidence: "stub" }),
+  id: "verdict",
+  name: "Verdict Score",
+  description:
+    "Evidence-backed reputation score for an agent service: live x402 probe, onchain footprint on Celo, quality review. Signed by the Verdict oracle. Pass { endpoint, name?, description?, payTo? }.",
+  priceUsd: "0.005",
+  handler: async (b) => {
+    const endpoint = String(b?.endpoint ?? "");
+    if (!/^https?:\/\//.test(endpoint)) {
+      return { error: "pass { endpoint: 'https://...' } to score a service" };
+    }
+    const card = await scoreService(
+      {
+        endpoint,
+        name: b?.name,
+        description: b?.description,
+        payTo: b?.payTo,
+      },
+      verdictAccount,
+    );
+    emit("scorecard", { target: card.target, score: card.score, grade: card.grade });
+    return card;
+  },
 });
 
 // --- HTTP plumbing -----------------------------------------------------------
@@ -77,6 +124,40 @@ function json(res: ServerResponse, status: number, body: unknown, headers: Recor
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
+
+  // CORS for the dashboard dev server.
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-PAYMENT");
+  res.setHeader("Access-Control-Expose-Headers", "X-PAYMENT-RESPONSE");
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    return res.end();
+  }
+
+  // Live event stream for the dashboard.
+  if (req.method === "GET" && url.pathname === "/events") {
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+    // Replay recent history so the dashboard paints instantly.
+    for (const ev of eventLog.slice(-50)) res.write(`data: ${JSON.stringify(ev)}\n\n`);
+    sseClients.add(res);
+    req.on("close", () => sseClients.delete(res));
+    return;
+  }
+
+  // Aggregate stats for the dashboard counters.
+  if (req.method === "GET" && url.pathname === "/stats") {
+    return json(res, 200, {
+      ...stats,
+      services: services.size,
+      mode: FREE_MODE ? "free" : "live",
+      payTo: PAYTO || null,
+      verdictIssuer: verdictAccount.address,
+    });
+  }
 
   // Directory: what can I buy?
   if (req.method === "GET" && url.pathname === "/services") {
@@ -109,9 +190,21 @@ const server = createServer(async (req, res) => {
       return json(res, 402, paymentRequiredBody(accepts));
     }
 
+    stats.calls++;
+    emit("call", { service: svc.id });
+
     if (FREE_MODE) {
       // Demo without funds: honor the request, return a mock receipt.
       const out = await svc.handler(body);
+      stats.settlements++;
+      stats.volumeUsd += Number(svc.priceUsd);
+      emit("settlement", {
+        service: svc.id,
+        priceUsd: svc.priceUsd,
+        payer: "free-mode",
+        transaction: "0xFREE",
+        mode: "free",
+      });
       return json(res, 200, { result: out, paid: "free-mode" }, {
         "X-PAYMENT-RESPONSE": settlementResponseHeader({ ok: true, transaction: "0xFREE" }),
       });
@@ -121,6 +214,15 @@ const server = createServer(async (req, res) => {
     if (!settle.ok) return json(res, 402, { error: settle.error });
 
     const out = await svc.handler(body);
+    stats.settlements++;
+    stats.volumeUsd += Number(svc.priceUsd);
+    emit("settlement", {
+      service: svc.id,
+      priceUsd: svc.priceUsd,
+      payer: settle.payer,
+      transaction: settle.transaction,
+      mode: "live",
+    });
     return json(res, 200, { result: out, payer: settle.payer, transaction: settle.transaction }, {
       "X-PAYMENT-RESPONSE": settlementResponseHeader(settle),
     });
