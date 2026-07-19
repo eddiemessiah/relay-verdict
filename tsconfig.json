@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["node"],
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@relay/celo-pay": ["packages/celo-pay/src/index.ts"],
+      "@relay/celo-pay/x402": ["packages/celo-pay/src/x402.ts"],
+      "@relay/celo-pay/client": ["packages/celo-pay/src/client.ts"],
+      "@relay/agent-kit": ["packages/agent-kit/src/index.ts"]
+    }
+  },
+  "include": ["packages/**/*.ts", "apps/**/*.ts", "scripts/**/*.ts"]
+}
