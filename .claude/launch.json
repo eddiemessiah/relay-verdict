@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "relay",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "apps/relay/server.ts"],
+      "env": { "FREE_MODE": "1", "RELAY_PORT": "8402" },
+      "port": 8402
+    },
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace=@relay/dashboard"],
+      "port": 3402
+    }
+  ]
+}
