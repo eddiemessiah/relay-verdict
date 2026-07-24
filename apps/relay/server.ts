@@ -63,6 +63,21 @@ interface Service {
 
 const services = new Map<string, Service>();
 
+// Community listings: external x402 endpoints admitted via a live Verdict
+// probe. Discovery-only — buyers pay the lister's endpoint directly, so the
+// lister's revenue lands in their own payTo. Relay is storefront, not toll.
+interface ExternalListing {
+  id: string;
+  name: string;
+  description: string;
+  priceUsd: string;
+  endpoint: string;
+  external: true;
+  verdict: { score: number; grade: string; evidence: unknown[] };
+  listedAt: number;
+}
+const externalListings = new Map<string, ExternalListing>();
+
 function register(s: Service) {
   services.set(s.id, s);
   emit("service_listed", { id: s.id, name: s.name, priceUsd: s.priceUsd });
@@ -152,21 +167,61 @@ const server = createServer(async (req, res) => {
   if (req.method === "GET" && url.pathname === "/stats") {
     return json(res, 200, {
       ...stats,
-      services: services.size,
+      services: services.size + externalListings.size,
       mode: FREE_MODE ? "free" : "live",
       payTo: PAYTO || null,
       verdictIssuer: verdictAccount.address,
     });
   }
 
-  // Directory: what can I buy?
+  // Directory: what can I buy? (built-ins + Verdict-admitted community listings)
   if (req.method === "GET" && url.pathname === "/services") {
     return json(res, 200, {
-      services: [...services.values()].map(({ handler, ...s }) => ({
-        ...s,
-        endpoint: `/s/${s.id}`,
-      })),
+      services: [
+        ...[...services.values()].map(({ handler, ...s }) => ({
+          ...s,
+          endpoint: `/s/${s.id}`,
+        })),
+        ...[...externalListings.values()],
+      ],
     });
+  }
+
+  // Bring-your-agent admission: Verdict probes the endpoint live; the
+  // scorecard is the listing's trust badge. D or better gets listed.
+  if (req.method === "POST" && url.pathname === "/agents/register") {
+    const body = safeJson(await readBody(req)) as any;
+    const name = String(body?.name ?? "").trim();
+    const endpoint = String(body?.endpoint ?? "").trim();
+    const description = String(body?.description ?? "").trim();
+    if (!name || !/^https?:\/\//.test(endpoint)) {
+      return json(res, 400, { error: "name and a valid http(s) endpoint are required" });
+    }
+    const card = await scoreService(
+      { endpoint, name, description },
+      verdictAccount,
+    );
+    if (card.score < 40) {
+      return json(res, 422, {
+        error: `Verdict admission failed: ${card.grade} · ${card.score}/100 — fix the evidence and resubmit`,
+        verdict: card,
+      });
+    }
+    const id = `ext-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 24)}`;
+    const listing: ExternalListing = {
+      id,
+      name,
+      description,
+      priceUsd: String(body?.priceUsd ?? "?"),
+      endpoint,
+      external: true,
+      verdict: { score: card.score, grade: card.grade, evidence: card.evidence },
+      listedAt: Date.now(),
+    };
+    externalListings.set(id, listing);
+    emit("service_listed", { id, name, external: true, verdict: listing.verdict });
+    emit("scorecard", { target: endpoint, score: card.score, grade: card.grade });
+    return json(res, 200, { listed: true, id, verdict: card });
   }
 
   // Metered service call: POST /s/:id

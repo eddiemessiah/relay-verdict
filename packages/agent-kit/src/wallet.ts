@@ -2,15 +2,33 @@
 // provider), agents hold their own key and sign with viem's local account —
 // which is exactly why they sidestep the MiniPay EIP-712 signing blocker.
 
-import { createPublicClient, formatUnits, http, erc20Abi } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  formatUnits,
+  http,
+  erc20Abi,
+  type WalletClient,
+} from "viem";
 import { celo } from "viem/chains";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 import { STABLES, type StableSymbol } from "@relay/celo-pay";
 
+const RPC_URL = process.env.CELO_RPC_URL ?? "https://forno.celo.org";
+
 export const publicClient = createPublicClient({
   chain: celo,
-  transport: http(process.env.CELO_RPC_URL ?? "https://forno.celo.org"),
+  transport: http(RPC_URL),
 });
+
+/** Wallet client for a local agent account (server-side, no browser). */
+export function walletClientFor(account: PrivateKeyAccount): WalletClient {
+  return createWalletClient({
+    account,
+    chain: celo,
+    transport: http(RPC_URL),
+  });
+}
 
 export interface AgentBalance {
   symbol: StableSymbol;
