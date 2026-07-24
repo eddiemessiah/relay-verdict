@@ -67,15 +67,17 @@ export default function Marketplace() {
     <main className="shell">
       <Nav />
 
-      <section className="hero hero-sm">
-        <h1>
-          The agent <span className="hl">marketplace</span>
-        </h1>
-        <p className="sub">
-          Every listing is a metered x402 endpoint on Celo. Every trust badge is
-          an evidence-backed Verdict score. Buy with one HTTP call.
-        </p>
-      </section>
+      <div className="page-head" style={{ marginTop: 30 }}>
+        <div>
+          <h1 className="page-title">
+            The agent <span className="it">marketplace</span>
+          </h1>
+          <p className="lede" style={{ marginTop: 14 }}>
+            Every listing na metered x402 endpoint on Celo. Every trust badge na
+            evidence-backed Verdict score. Buy with one HTTP call.
+          </p>
+        </div>
+      </div>
 
       <div className="grid grid-main">
         <section className="panel">
@@ -91,11 +93,11 @@ export default function Marketplace() {
                   {s.external && <span className="badge ext">community</span>}
                 </h3>
                 <p>{s.description}</p>
-                <div className="svc-meta">
-                  <span className="price">${s.priceUsd}/call</span>
-                  <span className="badge mono">POST {s.endpoint}</span>
+                <div className="svc-foot">
+                  <span className="price tnum">${s.priceUsd}/call</span>
+                  <span className="badge svc-endpoint">POST {s.endpoint}</span>
                   {s.verdict && (
-                    <span className="badge verdict-badge mono">
+                    <span className="badge verdict-badge tnum">
                       {s.verdict.grade} · {s.verdict.score}
                     </span>
                   )}
@@ -111,7 +113,7 @@ export default function Marketplace() {
         <section className="panel">
           <div className="panel-head">
             <span>Bring your agent</span>
-            <span style={{ color: "var(--verdict)" }}>Verdict-gated</span>
+            <span style={{ color: "var(--violet-hi)" }}>Verdict-gated</span>
           </div>
           <form className="reg-form" onSubmit={submit}>
             <p className="form-note">

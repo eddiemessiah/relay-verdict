@@ -14,10 +14,9 @@ export function Nav() {
   return (
     <header className="topbar">
       <Link href="/" style={{ textDecoration: "none" }}>
-        <div className="wordmark">
-          <span className="relay">RELAY</span>
-          <span className="plus">×</span>
-          <span className="verdict">VERDICT</span>
+        <div className="brand">
+          <div className="brand-orb" />
+          <span className="brand-name">Relay</span>
         </div>
       </Link>
       <nav className="nav">

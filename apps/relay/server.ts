@@ -87,7 +87,7 @@ function register(s: Service) {
 register({
   id: "echo",
   name: "Echo",
-  description: "Returns your payload — the simplest metered service.",
+  description: "Returns your payload. The simplest metered service.",
   priceUsd: "0.001",
   handler: (b) => ({ echo: b ?? null, at: Date.now() }),
 });
@@ -203,7 +203,7 @@ const server = createServer(async (req, res) => {
     );
     if (card.score < 40) {
       return json(res, 422, {
-        error: `Verdict admission failed: ${card.grade} · ${card.score}/100 — fix the evidence and resubmit`,
+        error: `Verdict admission failed: ${card.grade} · ${card.score}/100. Fix the evidence and resubmit.`,
         verdict: card,
       });
     }

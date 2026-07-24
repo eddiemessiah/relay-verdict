@@ -54,7 +54,7 @@ async function probeX402(endpoint: string): Promise<Evidence[]> {
     out.push({
       check: "latency",
       pass: ms < 3000,
-      detail: ms < 3000 ? `${ms}ms — responsive` : `${ms}ms — slow`,
+      detail: ms < 3000 ? `${ms}ms, responsive` : `${ms}ms, slow`,
       weight: 10,
     });
 
@@ -91,7 +91,7 @@ async function probeX402(endpoint: string): Promise<Evidence[]> {
       out.push({
         check: "x402-challenge",
         pass: false,
-        detail: `expected 402 challenge, got HTTP ${res.status} — not a metered x402 service`,
+        detail: `expected 402 challenge, got HTTP ${res.status}. Not a metered x402 service`,
         weight: 30,
       });
     }
@@ -118,7 +118,7 @@ async function onchainEvidence(address: `0x${string}`): Promise<Evidence[]> {
       pass: nonce > 0,
       detail:
         nonce > 0
-          ? `${nonce} tx sent from payTo — active onchain identity`
+          ? `${nonce} tx sent from payTo, active onchain identity`
           : "payTo has never sent a transaction",
       weight: 15,
     });

@@ -49,8 +49,13 @@ function Counter({ label, value }: { label: string; value: string | number }) {
   }, [value]);
   return (
     <div className="counter">
-      <div className="label">{label}</div>
-      <div className={`value ${bumped ? "bumped" : ""}`}>{value}</div>
+      <div
+        className="counter-num tnum"
+        style={bumped ? { color: "var(--gold-hi)", transition: "color 0.3s" } : { transition: "color 0.6s" }}
+      >
+        {value}
+      </div>
+      <div className="counter-label">{label}</div>
     </div>
   );
 }
@@ -104,8 +109,10 @@ export default function Dashboard() {
   return (
     <main className="shell">
       <Nav />
-      <div className="arena-head">
-        <h1 className="arena-title">The Arena</h1>
+      <div className="page-head">
+        <h1 className="page-title">
+          The <span className="it">Arena</span>
+        </h1>
         <div className={`mode-pill ${live ? "mode-live" : "mode-free"}`}>
           <span className={`dot ${connected ? "dot-pulse" : ""}`} />
           {live ? "LIVE · CELO MAINNET" : "FREE MODE · DEMO"}
@@ -136,10 +143,18 @@ export default function Dashboard() {
           ) : (
             <ul className="ticker">
               {settlements.map((e, i) => (
-                <li key={`${e.at}-${i}`}>
-                  <span className="svc">{e.data.service}</span>
-                  <span className="amt mono">${e.data.priceUsd}</span>
-                  <span className="who mono">{short(e.data.payer)}</span>
+                <li className="trow" key={`${e.at}-${i}`} style={{ listStyle: "none" }}>
+                  {i === 0 && <span className="trow-new" />}
+                  <div className="trow-main">
+                    <div className="trow-who">
+                      {short(e.data.payer)} <span className="sep">→</span>{" "}
+                      {e.data.service}
+                    </div>
+                    <div className="trow-hash tnum">
+                      {new Date(e.at).toLocaleTimeString()}
+                    </div>
+                  </div>
+                  <span className="trow-usd tnum">${e.data.priceUsd}</span>
                   {e.data.mode === "live" ? (
                     <a
                       className="txpill"
@@ -162,17 +177,31 @@ export default function Dashboard() {
           <section className="panel">
             <div className="panel-head">
               <span>Latest verdict</span>
-              <span style={{ color: "var(--verdict)" }}>signed oracle</span>
+              <span style={{ color: "var(--violet-hi)" }}>signed oracle</span>
             </div>
             {lastCard ? (
-              <div className="scorecard">
-                <div className="seal">
-                  <span className="grade">{lastCard.data.grade}</span>
-                  <div>
-                    <div className="score mono">
-                      {lastCard.data.score}/100
-                    </div>
-                    <div className="target">{lastCard.data.target}</div>
+              <div style={{ padding: 20, display: "flex", alignItems: "center", gap: 18 }}>
+                <span
+                  style={{
+                    fontFamily: "var(--font-d)",
+                    fontWeight: 800,
+                    fontSize: 46,
+                    color: "var(--gold-hi)",
+                    border: "2px solid rgba(242,206,123,0.5)",
+                    borderRadius: 14,
+                    padding: "2px 18px",
+                    transform: "rotate(-3deg)",
+                    display: "inline-block",
+                  }}
+                >
+                  {lastCard.data.grade}
+                </span>
+                <div>
+                  <div className="tnum" style={{ fontFamily: "var(--font-d)", fontSize: 24, fontWeight: 700 }}>
+                    {lastCard.data.score}/100
+                  </div>
+                  <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-faint)", wordBreak: "break-all", marginTop: 4 }}>
+                    {lastCard.data.target}
                   </div>
                 </div>
               </div>
@@ -194,9 +223,9 @@ export default function Dashboard() {
                 <article className="svc-card" key={s.id}>
                   <h3>{s.name}</h3>
                   <p>{s.description}</p>
-                  <div className="svc-meta">
-                    <span className="price">${s.priceUsd}/call</span>
-                    <span className="badge mono">POST {s.endpoint}</span>
+                  <div className="svc-foot">
+                    <span className="price tnum">${s.priceUsd}/call</span>
+                    <span className="badge svc-endpoint">POST {s.endpoint}</span>
                   </div>
                 </article>
               ))}
