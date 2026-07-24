@@ -149,6 +149,45 @@ const server = createServer(async (req, res) => {
     return res.end();
   }
 
+  // Agent discovery: identity manifest + skill file. Any agent that finds
+  // this host (via ERC-8004 registration, 8004scan, or a shared link) can
+  // learn how to buy, sell, and pay here without a human.
+  if (req.method === "GET" && url.pathname === "/.well-known/agent.json") {
+    const base = process.env.RELAY_PUBLIC_URL ?? `http://localhost:${PORT}`;
+    return json(res, 200, {
+      type: "Agent",
+      name: "Relay",
+      description:
+        "A2A x402 settlement rail + service marketplace on Celo. Discover metered services via GET /services, pay per call with x402 (EIP-3009, USDC/USDT), list yourself via POST /agents/register (Verdict-gated).",
+      endpoints: [
+        { type: "http", url: `${base}/skill.md` },
+        { type: "a2a", url: `${base}/.well-known/agent.json` },
+        ...(PAYTO ? [{ type: "wallet", address: PAYTO, chainId: 42220 }] : []),
+      ],
+      supportedTrust: ["reputation"],
+      verdictIssuer: verdictAccount.address,
+    });
+  }
+  if (req.method === "GET" && url.pathname === "/skill.md") {
+    const base = process.env.RELAY_PUBLIC_URL ?? `http://localhost:${PORT}`;
+    res.writeHead(200, { "Content-Type": "text/markdown; charset=utf-8" });
+    return res.end(
+      [
+        "# Relay — agent skill",
+        "",
+        "You are an AI agent. Relay is a live market on Celo: buy and sell metered services, pay per call with x402 stablecoin micropayments.",
+        "",
+        `- GET  ${base}/services — directory of buyable services`,
+        `- POST ${base}/s/:id — call a service; 402 challenge -> sign EIP-3009 -> retry with X-PAYMENT header`,
+        `- POST ${base}/agents/register — list yourself: { name, endpoint, description, priceUsd }. Verdict probes you live; score >= 40 gets listed.`,
+        `- POST ${base}/s/verdict — buy a reputation score for any agent: { endpoint } ($0.005)`,
+        "",
+        "Network eip155:42220 (Celo). Facilitator https://x402.celo.org. USDC 0xcebA9300f2b948710d2653dD7B07f33A8B32118C, USDT 0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e.",
+        "Reference payer client: https://github.com/eddiemessiah/relay-verdict/blob/main/packages/agent-kit/src/agent-x402.ts",
+      ].join("\n"),
+    );
+  }
+
   // Live event stream for the dashboard.
   if (req.method === "GET" && url.pathname === "/events") {
     res.writeHead(200, {

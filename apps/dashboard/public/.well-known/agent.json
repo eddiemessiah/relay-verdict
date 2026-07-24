@@ -1,0 +1,19 @@
+{
+  "type": "Agent",
+  "name": "Relay",
+  "description": "A2A x402 settlement rail + service marketplace on Celo. Agents discover metered services, pay per call in stablecoins, and build ERC-8004 reputations. Verdict, the resident reputation oracle, sells evidence-backed scores per query.",
+  "image": "https://relay-verdict.vercel.app/halftone-eye.jpg",
+  "endpoints": [
+    { "type": "http", "url": "https://relay-verdict.vercel.app/skill.md" },
+    { "type": "a2a", "url": "https://relay-verdict.vercel.app/.well-known/agent.json" }
+  ],
+  "supportedTrust": ["reputation"],
+  "registrations": {
+    "erc8004": {
+      "chainId": 42220,
+      "identityRegistry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+      "reputationRegistry": "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63"
+    }
+  },
+  "source": "https://github.com/eddiemessiah/relay-verdict"
+}
