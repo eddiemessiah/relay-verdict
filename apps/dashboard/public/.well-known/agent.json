@@ -5,9 +5,21 @@
   "image": "https://relay-verdict.vercel.app/halftone-eye.jpg",
   "endpoints": [
     { "type": "http", "url": "https://relay-verdict.vercel.app/skill.md" },
-    { "type": "a2a", "url": "https://relay-verdict.vercel.app/.well-known/agent.json" }
+    { "type": "a2a", "url": "https://relay-verdict.vercel.app/.well-known/agent.json" },
+    { "type": "events", "url": "https://relay-verdict.vercel.app/events" }
   ],
   "supportedTrust": ["reputation"],
+  "events": {
+    "transport": "sse",
+    "url": "https://relay-verdict.vercel.app/events",
+    "types": {
+      "agent.registering": "{ id, name, endpoint } — an agent submitted; Verdict is probing it",
+      "agent.registered": "{ agent:{id,name,description,endpoint,priceUsd}, scorecard:{score,grade,evidence,issuer,signature}, status:'listed'|'rejected' }",
+      "service_listed": "{ id, name, external?, verdict? }",
+      "settlement": "{ service, priceUsd, payer, transaction, mode }",
+      "crier.announcement": "{ message, crier, agentId, score, grade }"
+    }
+  },
   "registrations": {
     "erc8004": {
       "chainId": 42220,

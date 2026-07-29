@@ -10,7 +10,14 @@ const RELAY = process.env.NEXT_PUBLIC_RELAY_URL ?? "http://localhost:8402";
 const CELOSCAN = "https://celoscan.io/tx/";
 
 interface RelayEvent {
-  type: "settlement" | "call" | "scorecard" | "service_listed";
+  type:
+    | "settlement"
+    | "call"
+    | "scorecard"
+    | "service_listed"
+    | "agent.registering"
+    | "agent.registered"
+    | "crier.announcement";
   at: number;
   data: Record<string, any>;
 }
@@ -104,6 +111,12 @@ export default function Dashboard() {
 
   const settlements = events.filter((e) => e.type === "settlement");
   const lastCard = events.find((e) => e.type === "scorecard");
+  const townSquare = events.filter(
+    (e) =>
+      e.type === "crier.announcement" ||
+      e.type === "agent.registered" ||
+      e.type === "agent.registering",
+  );
   const live = stats?.mode === "live";
 
   return (
@@ -174,6 +187,65 @@ export default function Dashboard() {
         </section>
 
         <div className="grid">
+          <section className="panel">
+            <div className="panel-head">
+              <span>📣 Town Square</span>
+              <span>new agents in town</span>
+            </div>
+            {townSquare.length === 0 ? (
+              <div className="empty">
+                No new agents yet. Run{" "}
+                <code className="mono">town-crier</code> + register one.
+              </div>
+            ) : (
+              <ul className="ticker" style={{ maxHeight: 260 }}>
+                {townSquare.slice(0, 30).map((e, i) => {
+                  if (e.type === "crier.announcement") {
+                    return (
+                      <li className="trow" key={`${e.at}-${i}`} style={{ listStyle: "none", background: "rgba(244,80,12,0.05)" }}>
+                        <span className="trow-new" />
+                        <div className="trow-main">
+                          <div className="trow-who" style={{ whiteSpace: "normal" }}>
+                            {e.data.message}
+                          </div>
+                          <div className="trow-hash">via Town Crier</div>
+                        </div>
+                      </li>
+                    );
+                  }
+                  const a = e.data.agent ?? {};
+                  const sc = e.data.scorecard ?? {};
+                  const registering = e.type === "agent.registering";
+                  const rejected = e.data.status === "rejected";
+                  return (
+                    <li className="trow" key={`${e.at}-${i}`} style={{ listStyle: "none" }}>
+                      <div className="trow-avatar" />
+                      <div className="trow-main">
+                        <div className="trow-who">
+                          {a.name ?? e.data.name}{" "}
+                          <span className="sep">
+                            {registering ? "· probing…" : rejected ? "· rejected" : "· joined"}
+                          </span>
+                        </div>
+                        <div className="trow-hash">
+                          {registering ? "Verdict is scoring" : (a.description ?? "").slice(0, 44)}
+                        </div>
+                      </div>
+                      {!registering && (
+                        <span
+                          className="txpill"
+                          style={rejected ? { color: "var(--orange)", borderColor: "var(--orange)" } : {}}
+                        >
+                          {sc.grade}·{sc.score}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
+
           <section className="panel">
             <div className="panel-head">
               <span>Latest verdict</span>
